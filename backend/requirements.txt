@@ -1,0 +1,7 @@
+opencv-python
+dlib
+face_recognition
+google-cloud-storage
+firebase-admin
+fastapi
+uvicorn

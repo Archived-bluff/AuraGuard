@@ -1,0 +1,38 @@
+# Dart / Flutter
+.dart_tool/
+.packages
+.flutter-plugins
+.flutter-plugins-dependencies
+.melos_tool/
+prompts.txt
+
+# Build outputs
+build/
+android/app/build/
+ios/Pods/
+ios/Runner.xcworkspace/
+*.xcuserstate
+
+# Generated files
+pubspec.lock
+pubspec.yaml.bak
+
+# IDE junk
+.idea/
+.vscode/
+*.iml
+
+# macOS / Windows / Linux OS junk
+.DS_Store
+*.swp
+*.swo
+Thumbs.db
+
+# Firebase / Secrets
+**/google-services.json
+**/GoogleService-Info.plist
+**/*.keystore
+**/*.jks
+*.env
+.env.*
+android/app/google-services.json
