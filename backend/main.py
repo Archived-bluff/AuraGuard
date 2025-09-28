@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 import cv2
 import time
@@ -12,6 +12,7 @@ import os
 import tempfile
 
 app = FastAPI()
+BUCKET_NAME='aura-guard'
 
 app.add_middleware(
     CORSMiddleware,
@@ -177,7 +178,7 @@ def monitor_suspicious_activity():
                     cv2.imwrite(temp_snapshot.name, frame)
                     
                     try:
-                        snapshot_url = upload_file_to_gcs(temp_snapshot.name, "faces", f"{face_id}.jpg")
+                        snapshot_url = upload_file_to_gcs(temp_snapshot.name, "faces/unrecognised", f"{face_id}.jpg")
                         face_type, person_name = analyze_face_from_cloud(f"{face_id}.jpg")
                         save_face_metadata(face_id, snapshot_url, person_name, face_type)
                         print(f"📸 Snapshot uploaded: {person_name} ({face_type})")
@@ -350,19 +351,95 @@ def get_cloud_faces():
     except Exception as e:
         return {"error": str(e)}
 
-@app.get("/cloud-videos")
-def get_cloud_videos():
-    """Get recent videos from cloud storage"""
+@app.get("/cloud-videos-storage")
+def get_cloud_videos_storage():
     try:
-        docs = firestore_client.collection("videos").order_by("timestamp", direction="DESCENDING").limit(20).stream()
+        blobs = bucket.list_blobs(prefix="videos/")
         videos = []
-        for doc in docs:
-            video_data = doc.to_dict()
-            video_data['id'] = doc.id
-            videos.append(video_data)
-        return {"videos": videos}
+        for blob in blobs:
+            if blob.name.endswith(".mp4"):
+                videos.append({
+                    "name": blob.name.split("/")[-1],
+                    "url": f"https://storage.googleapis.com/{BUCKET_NAME}/{blob.name}"
+                })
+        return {"videos": videos[::-1]}  # newest first
+    except Exception as e:
+        return {"videos": []}
+
+@app.post("/faces/action")
+def face_action(face_name: str = Body(...), action: str = Body(...)):
+    try:
+        src_blob = bucket.blob(f"faces/unrecognised/{face_name}")
+
+        if action == "recognise":
+            dst_blob = bucket.blob(f"faces/recognised/{face_name}")
+            dst_blob.rewrite(src_blob)
+            src_blob.delete()
+        elif action == "mark":
+            dst_blob = bucket.blob(f"faces/marked/{face_name}")
+            dst_blob.rewrite(src_blob)
+            src_blob.delete()
+        elif action == "delete":
+            src_blob.delete()
+        else:
+            raise Exception("Invalid action")
+
+        return {"message": f"{action} done for {face_name}"}
     except Exception as e:
         return {"error": str(e)}
+
+@app.get("/cloud-faces-unrecognised")
+def get_unrecognised_faces():
+    try:
+        blobs = bucket.list_blobs(prefix="faces/unrecognised/")
+        faces = []
+        for blob in blobs:
+            if blob.name.endswith(".jpg"):
+                faces.append({
+                    "name": blob.name.split("/")[-1],
+                    "url": f"https://storage.googleapis.com/{BUCKET_NAME}/{blob.name}"
+                })
+        return {"faces": faces[::-1]}  # newest first
+    except Exception as e:
+        return {"error": str(e)}
+
+@app.post("/move-face")
+def move_face(
+    face_url: str = Body(..., embed=True),
+    target_folder: str = Body(..., embed=True)  # "recognised" or "marked"
+):
+    """Move a face image from unrecognised → recognised/marked"""
+    try:
+        if target_folder not in ["recognised", "marked"]:
+            raise HTTPException(status_code=400, detail="Invalid target folder")
+
+        # Extract blob name from URL
+        blob_name = face_url.replace(f"https://storage.googleapis.com/{BUCKET_NAME}/", "")
+        source_blob = bucket.blob(blob_name)
+        
+        # Destination path
+        filename = os.path.basename(blob_name)
+        dest_path = f"faces/{target_folder}/{filename}"
+        dest_blob = bucket.blob(dest_path)
+        
+        # Copy then delete
+        dest_blob.rewrite(source_blob)
+        source_blob.delete()
+        
+        return {"message": f"Moved to {target_folder}", "url": f"https://storage.googleapis.com/{BUCKET_NAME}/{dest_path}"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/delete-face")
+def delete_face(face_url: str = Body(..., embed=True)):
+    """Delete a face image from unrecognised"""
+    try:
+        blob_name = face_url.replace(f"https://storage.googleapis.com/{BUCKET_NAME}/", "")
+        blob = bucket.blob(blob_name)
+        blob.delete()
+        return {"message": "Deleted successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
