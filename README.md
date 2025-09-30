@@ -93,12 +93,6 @@ AuraGuard/
   Uploads files to Google Cloud Storage.
 - **save_face_metadata(), save_video_metadata():**  
   Saves metadata to Firestore.
-- **API Endpoints:**  
-  - `/start-monitoring`, `/stop-monitoring`: Control monitoring.
-  - `/cloud-faces`, `/cloud-videos-storage`: List faces/videos.
-  - `/cloud-faces-unrecognised`, `/cloud-faces-folder/{folder}`: List faces by category.
-  - `/move-face`, `/delete-face`: Move/delete face images.
-  - `/account-stats`: Get stats for dashboard.
 
 ### Flutter App
 
