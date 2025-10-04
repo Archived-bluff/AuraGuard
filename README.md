@@ -43,7 +43,8 @@ When suspicious behavior persists (marked individual loitering near the door for
 |---------|-------------|
 | **AI Face Detection** | Real-time detection and recognition using OpenCV and face_recognition library |
 | **Intelligent Categorization** | Instantly tags visitors as Recognised, Unrecognised, or Marked (watchlist) |
-| **Cloud-Powered Storage** | Snapshots and videos uploaded to Google Cloud Storage with Firestore metadata |
+| **Cloud-Powered Storage** | Snapshots and videos uploaded to Google Cloud Storage |
+| **Local Metadata Database** | Fast JSON-based storage for face and video metadata (production-ready Firestore migration planned) |
 | **Flutter Dashboard** | Modern cross-platform UI for Samsung Galaxy devices and Family Hub displays |
 | **Bixby Voice Commands** | Control security features hands-free via Samsung's voice assistant |
 | **SmartThings Integration** | Auto-triggers alerts and live feeds across Samsung smart home devices |
@@ -58,14 +59,14 @@ When suspicious behavior persists (marked individual loitering near the door for
 ```
 ┌──────────────────┐       ┌──────────────────┐       ┌──────────────────┐
 │  Samsung Family  │──────▶│   AI Detection   │──────▶│  Google Cloud    │
-│  Hub™ Doorbell   │ Video │ (OpenCV + FR)    │ Data  │  (GCS + Firebase)│
+│  Hub™ Doorbell   │ Video │ (OpenCV + FR)    │ Data  │  Storage (GCS)   │
 └──────────────────┘       └──────────────────┘       └──────────────────┘
                                     │                           │
                                     │                           │
                                     ▼                           ▼
                            ┌──────────────────┐       ┌──────────────────┐
                            │  FastAPI Backend │◀──────│ Flutter Dashboard│
-                           │  (Python Server) │  API  │ (Samsung Devices)│
+                           │  + JSON Metadata │  API  │ (Samsung Devices)│
                            └──────────────────┘       └──────────────────┘
                                     │
                                     ▼
@@ -85,8 +86,11 @@ When suspicious behavior persists (marked individual loitering near the door for
 AuraGuard/
 ├── backend/                # FastAPI backend (Python)
 │   ├── main.py             # Main API and monitoring logic
-│   ├── utils.py            # Cloud upload and Firestore helpers
-│   ├── gcp_client.py       # GCP/Firebase client setup
+│   ├── utils.py            # Cloud upload and metadata helpers
+│   ├── gcp_client.py       # GCP client setup
+│   ├── metadata/           # JSON metadata storage
+│   │   ├── faces.json      # Face metadata
+│   │   └── videos.json     # Video metadata
 │   └── requirements.txt    # Python dependencies
 ├── flutter_app/            # Flutter dashboard app
 │   ├── lib/
@@ -116,10 +120,10 @@ AuraGuard/
   - Face categorized as: **Recognised** (trusted), **Unrecognised** (new), or **Marked** (watchlist)
   - Video recording begins (max 60s or until face disappears for 3s)
 
-### 3️⃣ **Cloud Storage & Sync**
-- **Snapshots**: Stored in `faces/recognised/`, `faces/unrecognised/`, or `faces/marked/`
+### 3️⃣ **Cloud Storage & Metadata**
+- **Snapshots**: Stored in `faces/recognised/`, `faces/unrecognised/`, or `faces/marked/` on GCS
 - **Videos**: Stored in `videos/` folder with H264 encoding
-- **Metadata**: Face IDs, timestamps, URLs, and durations saved to Firestore
+- **Metadata**: Face IDs, timestamps, URLs, and durations saved to local JSON files (`metadata/faces.json` and `metadata/videos.json`)
 - Real-time sync to Flutter dashboard across all Samsung devices
 
 ### 4️⃣ **Interactive Dashboard**
@@ -141,10 +145,12 @@ AuraGuard/
 | Function | Purpose |
 |----------|---------|
 | `monitor_suspicious_activity()` | Main loop for camera monitoring, face detection, snapshot/video recording |
-| `get_known_face_encodings()` | Loads known faces from Firestore and GCS for recognition |
+| `get_known_face_encodings()` | Loads known faces from local JSON metadata and GCS for recognition |
 | `analyze_face_from_cloud()` | Compares snapshots against cloud-stored faces for matching |
 | `upload_file_to_gcs()` | Uploads files to Google Cloud Storage with automatic path management |
-| `save_face_metadata()` | Saves face information to Firestore (faceID, name, type, timestamp, URL) |
+| `save_face_metadata()` | Saves face information to JSON file (faceID, name, type, timestamp, URL) |
+| `save_video_metadata()` | Saves video metadata to JSON file (videoID, faceID, duration, URL) |
+| `load_metadata()` | Reads JSON metadata files for face and video information | to Firestore (faceID, name, type, timestamp, URL) |
 | `save_video_metadata()` | Saves video metadata to Firestore (videoID, faceID, duration, URL) |
 
 ---
@@ -285,12 +291,64 @@ flutter build ios  # iOS
 
 ---
 
+## 💪 Challenges We Overcame
+
+### 🌩️ **First-Time Google Cloud Integration**
+This was our team's first experience with Google Cloud Platform. Setting up Cloud Storage, Firestore, and service account authentication from scratch required diving deep into GCP documentation and understanding IAM roles, bucket permissions, and Firebase Admin SDK initialization. While we successfully implemented GCS for media storage, Firestore integration is still being debugged for the live demo.
+
+### ⚙️ **Dependency Hell: The Version Compatibility Nightmare**
+We faced significant compatibility issues between libraries:
+- **OpenCV vs dlib**: Different Python versions required for optimal performance
+- **face_recognition vs Firebase Admin SDK**: Conflicting dependencies on protobuf versions
+- **Flutter packages**: Firebase plugins had breaking changes between versions
+- **Solution**: Created isolated virtual environments, pinned exact versions in requirements.txt, and extensively tested on multiple Python versions (3.8, 3.9, 3.10) to find the sweet spot
+
+### 🔄 **Real-Time Face Detection Performance**
+Balancing detection accuracy with processing speed was tricky. Initial implementations caused significant lag and dropped frames. We optimized by:
+- Reducing frame resolution for detection (while keeping original for recording)
+- Implementing face detection cooldowns to prevent redundant processing
+- Using threading to separate video capture from face recognition
+
+### 🎨 **Cross-Platform Flutter Responsiveness**
+Making the dashboard work seamlessly on desktop (Family Hub displays) and mobile (Galaxy devices) required adaptive layouts, proper state management, and handling different screen aspect ratios without compromising UX.
+
+---
+
 ## 🎓 What We Learned
 
-- **Technical Challenges**: Real-time face recognition requires optimization for edge devices; we balanced cloud processing with local detection to minimize latency
-- **UX Design**: Swipe gestures provide intuitive face categorization while maintaining speed for busy users
-- **Samsung Integration**: SmartThings API documentation was comprehensive, enabling rapid cross-device feature deployment
-- **Privacy Considerations**: Auto-deletion of flagged faces after 30 days balances security with user privacy
+### 📚 **Documentation + StackOverflow > AI**
+While AI tools helped with boilerplate code, nothing beat reading official documentation for Google Cloud, Firebase, and face_recognition library. StackOverflow was invaluable for solving obscure dependency conflicts and understanding edge cases that AI couldn't anticipate.
+
+### 🧩 **Understanding the Full Stack**
+We gained deep insight into how different technologies connect:
+- **Backend-Cloud Communication**: How FastAPI endpoints trigger GCS uploads and Firestore writes
+- **Flutter-Backend Integration**: RESTful API design patterns and async data fetching
+- **CV Pipeline**: How OpenCV captures frames → dlib detects faces → face_recognition encodes features → cloud storage persists data
+- **State Management**: How Flutter's provider pattern keeps UI synced with backend state changes
+
+### 🎨 **UI/UX Design Principles**
+- **Gestural Interfaces**: Swipe interactions reduce cognitive load compared to button-heavy UIs
+- **Visual Feedback**: Loading states, success animations, and error messages are critical for user trust
+- **Information Hierarchy**: Dashboard should show critical info (suspicious activity) prominently, with secondary features (settings) nested deeper
+- **Accessibility**: Color contrast, font sizes, and touch target sizes matter for real-world usage
+
+### 🔐 **Privacy-First Development**
+We learned to think about data lifecycle from the start:
+- What data do we really need to store?
+- How long should we retain unrecognised faces?
+- What happens when users delete their account?
+- How do we communicate data usage transparently?
+
+### ⚡ **Rapid Prototyping Best Practices**
+- **Start Simple**: Get core functionality (face detection + storage) working before adding features
+- **Modular Architecture**: Separate concerns (detection, storage, API, UI) made debugging easier
+- **Version Control**: Frequent commits with descriptive messages saved us when things broke
+- **Testing on Real Hardware**: Emulators don't capture camera quirks; testing on actual Galaxy devices revealed performance bottlenecks we wouldn't have found otherwise
+
+### 🤝 **Team Collaboration**
+- **Clear Communication**: Daily standups kept everyone aligned despite working on different modules
+- **Code Reviews**: Catching bugs early and sharing knowledge across the team
+- **Division of Labor**: Frontend/backend/cloud specialists allowed parallel development without blocking each other
 
 ---
 
