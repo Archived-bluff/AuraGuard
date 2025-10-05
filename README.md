@@ -58,6 +58,16 @@ AuraGuard/
 
 ## Getting Started
 
+### Requirements.txt
+
+opencv-python
+dlib
+face_recognition
+google-cloud-storage
+firebase-admin
+fastapi
+uvicorn
+
 ### Backend Setup
 
 1. **Install dependencies:**
@@ -96,10 +106,16 @@ AuraGuard/
 
 ## API Endpoints (Backend)
 
-- `POST /start-monitoring` — Start camera and face detection.
-- `POST /stop-monitoring` — Stop monitoring and upload recordings.
-- `GET /cloud-faces` — List recent detected faces.
-- `GET /cloud-videos` — List recent suspicious activity videos.
+| Endpoint                       | Method | Description                         |
+| ------------------------------ | ------ | ----------------------------------- |
+| `/start-monitoring`            | POST   | Start camera monitoring             |
+| `/stop-monitoring`             | POST   | Stop monitoring & upload recordings |
+| `/cloud-faces-unrecognised`    | GET    | List unrecognised faces             |
+| `/cloud-faces-folder/{folder}` | GET    | List faces by category              |
+| `/cloud-videos-storage`        | GET    | List recent videos                  |
+| `/move-face`                   | POST   | Move face to recognised/marked      |
+| `/delete-face`                 | POST   | Delete face image                   |
+| `/account-stats`               | GET    | Get dashboard stats                 |
 
 ---
 
@@ -123,6 +139,12 @@ AuraGuard/
    - Reviews faces and marks them as known/unknown.
    - Checks suspicious activity and watches flagged recordings.
    - Adjusts account settings as needed.
+
+---
+
+## Submissions
+
+Google drive url: https://drive.google.com/file/d/1hplvX9GOnxsCT3T2IEel0ER5ovDoe8CK/view
 
 ---
 
