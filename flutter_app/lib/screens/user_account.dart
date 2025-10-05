@@ -401,7 +401,7 @@ class _AccountPageState extends State<AccountPage> {
         crossAxisCount: 3,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
-        childAspectRatio: 0.8,
+        childAspectRatio: 1.0, // Changed from 0.8 to make squares
       ),
       itemCount: faces.length,
       itemBuilder: (context, index) {
@@ -410,44 +410,26 @@ class _AccountPageState extends State<AccountPage> {
           onTap: () {
             _showFaceDetails(context, face, borderColor);
           },
-          child: Column(
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                  border: Border.all(color: borderColor, width: 3),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: Image.network(
-                    face['url']!,
-                    width: double.infinity,
-                    height: 100,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        height: 100,
-                        color: Colors.grey[300],
-                        child: Icon(Icons.error, color: Colors.grey[600]),
-                      );
-                    },
-                  ),
-                ),
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: borderColor, width: 3),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Image.network(
+                face['url']!,
+                width: double.infinity,
+                height: double.infinity,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    color: Colors.grey[300],
+                    child: Icon(Icons.error, color: Colors.grey[600]),
+                  );
+                },
               ),
-              SizedBox(height: 6),
-              Text(
-                face['name']!.length > 12
-                    ? '${face['name']!.substring(0, 12)}...'
-                    : face['name']!,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
+            ),
           ),
         );
       },

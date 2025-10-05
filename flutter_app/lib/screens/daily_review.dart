@@ -70,15 +70,12 @@ class _DailyReviewPageState extends State<DailyReviewPage> {
     Map<String, dynamic> body = {'face_url': faceUrl};
 
     if (direction == 'right') {
-      // Recognised
       endpoint = 'http://localhost:8000/move-face';
       body['target_folder'] = 'recognised';
     } else if (direction == 'up') {
-      // Marked
       endpoint = 'http://localhost:8000/move-face';
       body['target_folder'] = 'marked';
     } else if (direction == 'left') {
-      // Delete
       endpoint = 'http://localhost:8000/delete-face';
     }
 
@@ -96,7 +93,6 @@ class _DailyReviewPageState extends State<DailyReviewPage> {
           }
         });
 
-        // Show feedback
         String message = direction == 'right'
             ? '✓ Marked as Recognised'
             : direction == 'up'
@@ -117,9 +113,6 @@ class _DailyReviewPageState extends State<DailyReviewPage> {
       }
     } catch (e) {
       print('Error: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Action failed'), backgroundColor: Colors.red),
-      );
     }
   }
 
